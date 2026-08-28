@@ -1,11 +1,13 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft, Play, Share2, Star, X, Heart, PenLine } from "lucide-react";
-import { getTitle, inr, titles } from "@/lib/mock-data";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { catalogQueryOptions, findTitle, inr } from "@/lib/catalog";
 
 export const Route = createFileRoute("/title/$id")({
-  loader: ({ params }) => {
-    const title = getTitle(params.id);
+  loader: async ({ context, params }) => {
+    const catalog = await context.queryClient.ensureQueryData(catalogQueryOptions);
+    const title = findTitle(catalog, params.id);
     if (!title) throw notFound();
     return { title };
   },
@@ -30,6 +32,7 @@ export const Route = createFileRoute("/title/$id")({
 
 function Detail() {
   const { title } = Route.useLoaderData();
+  const { titles } = useSuspenseQuery(catalogQueryOptions).data;
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const [trailer, setTrailer] = useState(false);
