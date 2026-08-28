@@ -112,7 +112,7 @@ export function useConfirmBooking() {
           })),
         );
         if (seatError) {
-          await supabase.from("bookings").delete().eq("ref", ref);
+          await supabase.from("bookings").update({ cancelled: true }).eq("ref", ref);
           throw new Error("Someone just took one of those seats. Please pick again.");
         }
       }
