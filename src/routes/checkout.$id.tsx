@@ -150,9 +150,13 @@ function Checkout() {
             return (
               <button
                 key={c.code}
-                onClick={() =>
-                  setDraft({ promo: active ? null : { code: c.code, discount: c.discount } })
-                }
+                onClick={() => {
+                  setDraft({ promo: active ? null : { code: c.code, discount: c.discount } });
+                  toast[active ? "message" : "success"](
+                    active ? `${c.code} removed` : `${c.code} applied · ${inr(c.discount)} off`,
+                  );
+                }}
+
                 className={`press flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
                   active ? "bg-primary/15 ring-1 ring-primary/50" : "bg-surface-2"
                 }`}
