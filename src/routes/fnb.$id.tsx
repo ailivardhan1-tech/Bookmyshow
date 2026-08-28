@@ -2,13 +2,15 @@ import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-ro
 import { useState } from "react";
 import { ArrowLeft, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { fnbItems, getTitle, inr, type FnbItem } from "@/lib/mock-data";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { catalogQueryOptions, findTitle, inr, type FnbItem } from "@/lib/catalog";
 import { useBooking } from "@/lib/booking-store";
 
 
 export const Route = createFileRoute("/fnb/$id")({
-  loader: ({ params }) => {
-    const title = getTitle(params.id);
+  loader: async ({ context, params }) => {
+    const catalog = await context.queryClient.ensureQueryData(catalogQueryOptions);
+    const title = findTitle(catalog, params.id);
     if (!title) throw notFound();
     return { title };
   },
@@ -43,6 +45,7 @@ function Fnb() {
   const { title } = Route.useLoaderData();
   const navigate = useNavigate();
   const { draft, setDraft } = useBooking();
+  const { fnbItems } = useSuspenseQuery(catalogQueryOptions).data;
   const [cart, setCart] = useState<Record<string, number>>(draft.fnb);
   const [cat, setCat] = useState<FnbItem["category"]>("Combos");
 

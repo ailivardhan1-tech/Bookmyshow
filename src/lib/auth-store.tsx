@@ -1,83 +1,115 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
 
 export type AppUser = {
   id: string;
   name: string;
   email: string;
-  phone?: string;
+  phone?: string | undefined;
 };
 
 type Ctx = {
   user: AppUser | null;
-  /** False until persisted state has been read, so guards don't flash. */
+  session: Session | null;
+  /** False until the session has been restored, so guards don't flash. */
   ready: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (name: string, email: string, password: string) => Promise<void>;
-  signOut: () => void;
+  /** Resolves to true when a session started immediately, false when a
+   *  confirmation email was sent instead. */
+  signUp: (name: string, email: string, password: string) => Promise<boolean>;
+  signInWithGoogle: () => Promise<void>;
+  signOut: () => Promise<void>;
 };
-
-const STORAGE_KEY = "bookgo.auth.v1";
 
 const AuthContext = createContext<Ctx | null>(null);
 
-/**
- * Local-only auth for the demo build. The surface (user / signIn / signUp /
- * signOut) is deliberately shaped like Supabase auth so the backend swap is a
- * drop-in replacement.
- */
+function toAppUser(session: Session | null): AppUser | null {
+  const u = session?.user;
+  if (!u) return null;
+  const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
+  const name =
+    (typeof meta["full_name"] === "string" && meta["full_name"]) ||
+    (typeof meta["name"] === "string" && meta["name"]) ||
+    u.email?.split("@")[0] ||
+    "Guest";
+  return {
+    id: u.id,
+    email: u.email ?? "",
+    name: String(name),
+    phone: u.phone || undefined,
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AppUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setUser(JSON.parse(raw) as AppUser);
-    } catch {
-      /* ignore corrupted local state */
-    }
-    setReady(true);
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+      setSession(next);
+      setReady(true);
+    });
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setReady(true);
+    });
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (!ready) return;
-    try {
-      if (user) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-      else window.localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      /* storage unavailable */
-    }
-  }, [user, ready]);
+  const signIn = useCallback(async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+    if (error) throw new Error(error.message);
+  }, []);
+
+  const signUp = useCallback(async (name: string, email: string, password: string) => {
+    if (name.trim().length < 2) throw new Error("Please enter your name.");
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim().toLowerCase(),
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/profile`,
+        data: { full_name: name.trim() },
+      },
+    });
+    if (error) throw new Error(error.message);
+    return Boolean(data.session);
+  }, []);
+
+  const signInWithGoogle = useCallback(async () => {
+    const { lovable } = await import("@/integrations/lovable/index");
+    const result = await lovable.auth.signInWithOAuth("google", {
+      redirect_uri: window.location.origin,
+    });
+    if (result.error) throw new Error(result.error.message ?? "Google sign-in failed.");
+  }, []);
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+  }, []);
 
   const value = useMemo<Ctx>(
     () => ({
-      user,
+      user: toAppUser(session),
+      session,
       ready,
-      signIn: async (email, password) => {
-        if (!email.includes("@")) throw new Error("Enter a valid email address.");
-        if (password.length < 6) throw new Error("Password must be at least 6 characters.");
-        setUser({
-          id: email.toLowerCase(),
-          email: email.toLowerCase(),
-          name: email.split("@")[0] ?? "Guest",
-        });
-      },
-      signUp: async (name, email, password) => {
-        if (name.trim().length < 2) throw new Error("Please enter your name.");
-        if (!email.includes("@")) throw new Error("Enter a valid email address.");
-        if (password.length < 6) throw new Error("Password must be at least 6 characters.");
-        setUser({ id: email.toLowerCase(), email: email.toLowerCase(), name: name.trim() });
-      },
-      signOut: () => setUser(null),
+      signIn,
+      signUp,
+      signInWithGoogle,
+      signOut,
     }),
-    [user, ready],
+    [session, ready, signIn, signUp, signInWithGoogle, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

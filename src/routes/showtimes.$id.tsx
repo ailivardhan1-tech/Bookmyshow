@@ -1,12 +1,14 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ArrowLeft, Heart, MapPin, Sofa, Ticket } from "lucide-react";
-import { getTitle, inr, theaters } from "@/lib/mock-data";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { catalogQueryOptions, findTitle, inr } from "@/lib/catalog";
 import { useBooking } from "@/lib/booking-store";
 
 export const Route = createFileRoute("/showtimes/$id")({
-  loader: ({ params }) => {
-    const title = getTitle(params.id);
+  loader: async ({ context, params }) => {
+    const catalog = await context.queryClient.ensureQueryData(catalogQueryOptions);
+    const title = findTitle(catalog, params.id);
     if (!title) throw notFound();
     return { title };
   },
@@ -56,6 +58,7 @@ function useDateStrip() {
 
 function Showtimes() {
   const { title } = Route.useLoaderData();
+  const { theaters } = useSuspenseQuery(catalogQueryOptions).data;
   const navigate = useNavigate();
   const { city, setDraft } = useBooking();
   const dates = useDateStrip();
