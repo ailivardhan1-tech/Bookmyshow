@@ -3,7 +3,8 @@ import { useMemo, useState } from "react";
 import { SearchX, Star } from "lucide-react";
 import { TopHeader } from "@/components/TopHeader";
 import { BottomNav } from "@/components/BottomNav";
-import { categories, inr, titles, type Category } from "@/lib/mock-data";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { catalogQueryOptions, inr, type Category } from "@/lib/catalog";
 
 export const Route = createFileRoute("/explore")({
   head: () => ({
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/explore")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  loader: ({ context }) => context.queryClient.ensureQueryData(catalogQueryOptions),
   component: Explore,
 });
 
@@ -31,6 +33,7 @@ const LANGUAGES = ["All", "English", "Hindi", "Telugu", "Tamil", "Marathi", "Kan
 function Explore() {
   const [cat, setCat] = useState<Category | "All">("All");
   const [lang, setLang] = useState("All");
+  const { titles, categories } = useSuspenseQuery(catalogQueryOptions).data;
 
   const list = useMemo(
     () =>
@@ -39,7 +42,7 @@ function Explore() {
           (cat === "All" || t.category === cat) &&
           (lang === "All" || t.languages.includes(lang)),
       ),
-    [cat, lang],
+    [cat, lang, titles],
   );
 
   return (
@@ -49,7 +52,7 @@ function Explore() {
         <h1 className="text-xl font-black tracking-tight">Explore everything</h1>
 
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 no-scrollbar">
-          {(["All", ...categories] as const).map((c) => (
+          {["All", ...categories].map((c) => (
             <Chip key={c} active={cat === c} onClick={() => setCat(c)} label={c} />
           ))}
         </div>
