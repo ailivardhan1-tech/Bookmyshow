@@ -1,8 +1,10 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft, Info } from "lucide-react";
+import { toast } from "sonner";
 import { getTitle, inr, isSeatSold, seatTiers } from "@/lib/mock-data";
 import { useBooking } from "@/lib/booking-store";
+
 
 export const Route = createFileRoute("/seats/$id")({
   loader: ({ params }) => {
