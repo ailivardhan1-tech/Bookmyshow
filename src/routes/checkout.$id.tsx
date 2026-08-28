@@ -50,8 +50,10 @@ function Checkout() {
   const { title } = Route.useLoaderData();
   const navigate = useNavigate();
   const { draft, setDraft, confirmBooking } = useBooking();
+  const { user } = useAuth();
   const [method, setMethod] = useState<string>("upi");
   const [paying, setPaying] = useState(false);
+
 
   const seatTotal = draft.seats.reduce((s, x) => s + x.price, 0);
   const fnbLines = Object.entries(draft.fnb)
