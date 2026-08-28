@@ -1,8 +1,11 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft, BadgePercent, CreditCard, Landmark, Smartphone, Wallet } from "lucide-react";
+import { toast } from "sonner";
 import { coupons, fnbItems, getTitle, inr } from "@/lib/mock-data";
 import { useBooking } from "@/lib/booking-store";
+import { useAuth } from "@/lib/auth-store";
+
 
 export const Route = createFileRoute("/checkout/$id")({
   loader: ({ params }) => {
@@ -47,8 +50,10 @@ function Checkout() {
   const { title } = Route.useLoaderData();
   const navigate = useNavigate();
   const { draft, setDraft, confirmBooking } = useBooking();
+  const { user } = useAuth();
   const [method, setMethod] = useState<string>("upi");
   const [paying, setPaying] = useState(false);
+
 
   const seatTotal = draft.seats.reduce((s, x) => s + x.price, 0);
   const fnbLines = Object.entries(draft.fnb)
@@ -64,10 +69,19 @@ function Checkout() {
   const total = Math.max(0, seatTotal + fnbTotal + fee + gst - discount);
 
   const pay = () => {
+    if (!user) {
+      toast.error("Please sign in to complete your booking.");
+      navigate({ to: "/auth" });
+      return;
+    }
     setPaying(true);
     const booking = confirmBooking(total);
-    setTimeout(() => navigate({ to: "/ticket/$ref", params: { ref: booking.ref } }), 900);
+    setTimeout(() => {
+      toast.success(`Booking confirmed · ${booking.ref}`);
+      navigate({ to: "/ticket/$ref", params: { ref: booking.ref } });
+    }, 900);
   };
+
 
   if (draft.seats.length === 0) {
     return (
@@ -136,9 +150,13 @@ function Checkout() {
             return (
               <button
                 key={c.code}
-                onClick={() =>
-                  setDraft({ promo: active ? null : { code: c.code, discount: c.discount } })
-                }
+                onClick={() => {
+                  setDraft({ promo: active ? null : { code: c.code, discount: c.discount } });
+                  toast[active ? "message" : "success"](
+                    active ? `${c.code} removed` : `${c.code} applied · ${inr(c.discount)} off`,
+                  );
+                }}
+
                 className={`press flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
                   active ? "bg-primary/15 ring-1 ring-primary/50" : "bg-surface-2"
                 }`}

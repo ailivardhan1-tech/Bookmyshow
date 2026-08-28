@@ -1,8 +1,10 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft, Info } from "lucide-react";
+import { toast } from "sonner";
 import { getTitle, inr, isSeatSold, seatTiers } from "@/lib/mock-data";
 import { useBooking } from "@/lib/booking-store";
+
 
 export const Route = createFileRoute("/seats/$id")({
   loader: ({ params }) => {
@@ -44,14 +46,16 @@ function Seats() {
   const [selected, setSelected] = useState<Seat[]>(draft.seats);
 
   const toggle = (seat: Seat) => {
-    setSelected((cur) =>
-      cur.some((s) => s.id === seat.id)
-        ? cur.filter((s) => s.id !== seat.id)
-        : cur.length >= 10
-          ? cur
-          : [...cur, seat],
-    );
+    setSelected((cur) => {
+      if (cur.some((s) => s.id === seat.id)) return cur.filter((s) => s.id !== seat.id);
+      if (cur.length >= 10) {
+        toast.error("You can book up to 10 seats in one go.");
+        return cur;
+      }
+      return [...cur, seat];
+    });
   };
+
 
   const subtotal = selected.reduce((sum, s) => sum + s.price, 0);
 
