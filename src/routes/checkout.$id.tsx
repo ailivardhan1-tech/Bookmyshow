@@ -69,10 +69,19 @@ function Checkout() {
   const total = Math.max(0, seatTotal + fnbTotal + fee + gst - discount);
 
   const pay = () => {
+    if (!user) {
+      toast.error("Please sign in to complete your booking.");
+      navigate({ to: "/auth" });
+      return;
+    }
     setPaying(true);
     const booking = confirmBooking(total);
-    setTimeout(() => navigate({ to: "/ticket/$ref", params: { ref: booking.ref } }), 900);
+    setTimeout(() => {
+      toast.success(`Booking confirmed · ${booking.ref}`);
+      navigate({ to: "/ticket/$ref", params: { ref: booking.ref } });
+    }, 900);
   };
+
 
   if (draft.seats.length === 0) {
     return (
