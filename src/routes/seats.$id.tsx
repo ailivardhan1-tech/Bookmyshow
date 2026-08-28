@@ -2,13 +2,15 @@ import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-ro
 import { useState } from "react";
 import { ArrowLeft, Info } from "lucide-react";
 import { toast } from "sonner";
-import { getTitle, inr, isSeatSold, seatTiers } from "@/lib/mock-data";
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
+import { catalogQueryOptions, findTitle, inr, takenSeatsQueryOptions } from "@/lib/catalog";
 import { useBooking } from "@/lib/booking-store";
 
 
 export const Route = createFileRoute("/seats/$id")({
-  loader: ({ params }) => {
-    const title = getTitle(params.id);
+  loader: async ({ context, params }) => {
+    const catalog = await context.queryClient.ensureQueryData(catalogQueryOptions);
+    const title = findTitle(catalog, params.id);
     if (!title) throw notFound();
     return { title };
   },
@@ -43,7 +45,19 @@ function Seats() {
   const { title } = Route.useLoaderData();
   const navigate = useNavigate();
   const { draft, setDraft } = useBooking();
+  const { seatTiers } = useSuspenseQuery(catalogQueryOptions).data;
   const [selected, setSelected] = useState<Seat[]>(draft.seats);
+
+  // Seats already sold for this exact show, straight from the database.
+  const { data: takenSeats = [] } = useQuery(
+    takenSeatsQueryOptions({
+      titleId: title.id,
+      theaterId: draft.theaterId,
+      showDate: draft.date,
+      showTime: draft.time,
+    }),
+  );
+  const taken = new Set(takenSeats);
 
   const toggle = (seat: Seat) => {
     setSelected((cur) => {
@@ -107,7 +121,7 @@ function Seats() {
                       {Array.from({ length: tier.cols }, (_, i) => {
                         const col = i + 1;
                         const id = `${row}${col}`;
-                        const sold = isSeatSold(row, col);
+                        const sold = taken.has(id);
                         const isSel = selected.some((s) => s.id === id);
                         return (
                           <button
