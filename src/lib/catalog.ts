@@ -46,8 +46,8 @@ export type Title = {
   genres: string[];
   synopsis: string;
   cast: CastMember[];
-  venue?: string;
-  dateLabel?: string;
+  venue?: string | undefined;
+  dateLabel?: string | undefined;
   priceFrom: number;
 };
 
