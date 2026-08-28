@@ -1,8 +1,11 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft, BadgePercent, CreditCard, Landmark, Smartphone, Wallet } from "lucide-react";
+import { toast } from "sonner";
 import { coupons, fnbItems, getTitle, inr } from "@/lib/mock-data";
 import { useBooking } from "@/lib/booking-store";
+import { useAuth } from "@/lib/auth-store";
+
 
 export const Route = createFileRoute("/checkout/$id")({
   loader: ({ params }) => {

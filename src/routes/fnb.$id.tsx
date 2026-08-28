@@ -122,11 +122,15 @@ function Fnb() {
                 </div>
                 {qty === 0 ? (
                   <button
-                    onClick={() => bump(f.id, 1)}
+                    onClick={() => {
+                      bump(f.id, 1);
+                      toast.success(`${f.name} added`);
+                    }}
                     className="press shrink-0 rounded-xl bg-surface-2 px-3 py-2 text-xs font-black text-primary glass-border"
                   >
                     Add
                   </button>
+
                 ) : (
                   <div className="flex shrink-0 items-center gap-2 rounded-xl gradient-primary px-2 py-1.5 text-primary-foreground">
                     <button aria-label={`Remove one ${f.name}`} onClick={() => bump(f.id, -1)}>
