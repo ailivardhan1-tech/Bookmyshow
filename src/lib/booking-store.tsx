@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 
+/** In-progress selection. Lives client-side until checkout writes it to the database. */
 export type Draft = {
   titleId: string;
   theaterId: string;
@@ -18,13 +19,6 @@ export type Draft = {
   seats: { id: string; tier: string; price: number }[];
   fnb: Record<string, number>;
   promo: { code: string; discount: number } | null;
-};
-
-export type Booking = Draft & {
-  ref: string;
-  bookedAt: string;
-  total: number;
-  cancelled?: boolean;
 };
 
 const emptyDraft: Draft = {
@@ -40,7 +34,7 @@ const emptyDraft: Draft = {
   promo: null,
 };
 
-const STORAGE_KEY = "bookgo.state.v1";
+const STORAGE_KEY = "bookgo.state.v2";
 
 type Ctx = {
   city: string;
@@ -48,9 +42,6 @@ type Ctx = {
   draft: Draft;
   setDraft: (patch: Partial<Draft>) => void;
   resetDraft: () => void;
-  bookings: Booking[];
-  confirmBooking: (total: number) => Booking;
-  cancelBooking: (ref: string) => void;
 };
 
 const BookingContext = createContext<Ctx | null>(null);
@@ -58,17 +49,15 @@ const BookingContext = createContext<Ctx | null>(null);
 export function BookingProvider({ children }: { children: ReactNode }) {
   const [city, setCity] = useState("Mumbai");
   const [draft, setDraftState] = useState<Draft>(emptyDraft);
-  const [bookings, setBookings] = useState<Booking[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  // Read persisted demo state after hydration so SSR and first client render match.
+  // Read the persisted city after hydration so SSR and first client render match.
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw) as { city?: string; bookings?: Booking[] };
+        const parsed = JSON.parse(raw) as { city?: string };
         if (parsed.city) setCity(parsed.city);
-        if (Array.isArray(parsed.bookings)) setBookings(parsed.bookings);
       }
     } catch {
       /* ignore corrupted local state */
@@ -79,11 +68,11 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!loaded) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ city, bookings }));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ city }));
     } catch {
       /* storage unavailable */
     }
-  }, [city, bookings, loaded]);
+  }, [city, loaded]);
 
   const value = useMemo<Ctx>(
     () => ({
@@ -92,21 +81,8 @@ export function BookingProvider({ children }: { children: ReactNode }) {
       draft,
       setDraft: (patch) => setDraftState((d) => ({ ...d, ...patch })),
       resetDraft: () => setDraftState(emptyDraft),
-      bookings,
-      confirmBooking: (total) => {
-        const booking: Booking = {
-          ...draft,
-          total,
-          ref: `BMX${Math.floor(100000 + Math.random() * 899999)}`,
-          bookedAt: new Date().toISOString(),
-        };
-        setBookings((b) => [booking, ...b]);
-        return booking;
-      },
-      cancelBooking: (ref) =>
-        setBookings((b) => b.map((x) => (x.ref === ref ? { ...x, cancelled: true } : x))),
     }),
-    [city, draft, bookings],
+    [city, draft],
   );
 
   return <BookingContext.Provider value={value}>{children}</BookingContext.Provider>;
