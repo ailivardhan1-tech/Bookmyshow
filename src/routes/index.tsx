@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { Star, Play, Calendar, MapPin, ChevronRight } from "lucide-react";
 import { TopHeader } from "@/components/TopHeader";
 import { BottomNav } from "@/components/BottomNav";
-import { categories, heroSlides, inr, titles, type Category } from "@/lib/mock-data";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { catalogQueryOptions, inr, type Category } from "@/lib/catalog";
 import { useBooking } from "@/lib/booking-store";
 
 export const Route = createFileRoute("/")({
@@ -22,12 +23,14 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
+  loader: ({ context }) => context.queryClient.ensureQueryData(catalogQueryOptions),
   component: Home,
 });
 
 function Home() {
   const [cat, setCat] = useState<Category>("Movies");
   const { city } = useBooking();
+  const { titles } = useSuspenseQuery(catalogQueryOptions).data;
   const movies = titles.filter((t) => t.kind === "movie");
   const events = titles.filter((t) => t.kind === "event");
   const visible =
@@ -131,6 +134,7 @@ function CategoryBar({
   cat: Category;
   setCat: (c: Category) => void;
 }) {
+  const { categories } = useSuspenseQuery(catalogQueryOptions).data;
   return (
     <div className="flex gap-2 overflow-x-auto px-4 py-3 no-scrollbar">
       {categories.map((c) => (
@@ -153,11 +157,12 @@ function CategoryBar({
 function HeroCarousel() {
   const [i, setI] = useState(0);
   const navigate = useNavigate();
+  const { heroSlides } = useSuspenseQuery(catalogQueryOptions).data;
 
   useEffect(() => {
     const t = setInterval(() => setI((v) => (v + 1) % heroSlides.length), 4000);
     return () => clearInterval(t);
-  }, []);
+  }, [heroSlides.length]);
 
   return (
     <div className="px-4">
