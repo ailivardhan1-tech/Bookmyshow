@@ -13,12 +13,12 @@
 - [x] Real site title and meta description (was the Lovable placeholder)
 - [x] Search already existed in the top header
 
-## Day 2 — backend (next)
-- [ ] Enable Lovable Cloud
-- [ ] Schema: profiles, titles, theaters, shows, bookings, booking_seats, fnb_items, booking_fnb
-- [ ] RLS: public read on catalogue, per-user read/write on bookings
-- [ ] Seed the existing mock catalogue as literal INSERTs
-- [ ] Replace mock-data reads with database queries
-- [ ] Real bookings written to the database, sold seats derived from booking_seats
-- [ ] Swap the local auth store for Cloud auth (same interface)
+## Day 2 — backend (done)
+- [x] Enable Lovable Cloud
+- [x] Schema: profiles, titles, cast, theaters, shows, fnb_items, coupons, seat_tiers, hero_slides, cities, bookings, booked_seats
+- [x] RLS: public read on catalogue, per-user read/write on bookings
+- [x] Seed the full catalogue as literal INSERTs
+- [x] Replace mock-data reads with database queries (server functions + React Query)
+- [x] Real bookings written to the database, sold seats derived from booked_seats
+- [x] Swap the local auth store for Cloud auth (email/password + Google, instant sign-in)
 - [ ] Publish
