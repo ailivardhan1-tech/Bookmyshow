@@ -2,14 +2,17 @@ import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-ro
 import { useState } from "react";
 import { ArrowLeft, BadgePercent, CreditCard, Landmark, Smartphone, Wallet } from "lucide-react";
 import { toast } from "sonner";
-import { coupons, fnbItems, getTitle, inr } from "@/lib/mock-data";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { catalogQueryOptions, findTitle, inr } from "@/lib/catalog";
+import { useConfirmBooking } from "@/lib/bookings";
 import { useBooking } from "@/lib/booking-store";
 import { useAuth } from "@/lib/auth-store";
 
 
 export const Route = createFileRoute("/checkout/$id")({
-  loader: ({ params }) => {
-    const title = getTitle(params.id);
+  loader: async ({ context, params }) => {
+    const catalog = await context.queryClient.ensureQueryData(catalogQueryOptions);
+    const title = findTitle(catalog, params.id);
     if (!title) throw notFound();
     return { title };
   },
@@ -49,8 +52,10 @@ const METHODS = [
 function Checkout() {
   const { title } = Route.useLoaderData();
   const navigate = useNavigate();
-  const { draft, setDraft, confirmBooking } = useBooking();
+  const { draft, setDraft, resetDraft } = useBooking();
+  const { coupons, fnbItems } = useSuspenseQuery(catalogQueryOptions).data;
   const { user } = useAuth();
+  const confirmBooking = useConfirmBooking();
   const [method, setMethod] = useState<string>("upi");
   const [paying, setPaying] = useState(false);
 
@@ -68,18 +73,22 @@ function Checkout() {
   const discount = draft.promo?.discount ?? 0;
   const total = Math.max(0, seatTotal + fnbTotal + fee + gst - discount);
 
-  const pay = () => {
+  const pay = async () => {
     if (!user) {
       toast.error("Please sign in to complete your booking.");
       navigate({ to: "/auth" });
       return;
     }
     setPaying(true);
-    const booking = confirmBooking(total);
-    setTimeout(() => {
+    try {
+      const booking = await confirmBooking.mutateAsync({ draft, total });
       toast.success(`Booking confirmed · ${booking.ref}`);
+      resetDraft();
       navigate({ to: "/ticket/$ref", params: { ref: booking.ref } });
-    }, 900);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Payment failed. Please try again.");
+      setPaying(false);
+    }
   };
 
 

@@ -4,8 +4,10 @@ import { ChevronRight, LogOut, Mail, Ticket } from "lucide-react";
 import { toast } from "sonner";
 import { TopHeader } from "@/components/TopHeader";
 import { BottomNav } from "@/components/BottomNav";
-import { getTitle, inr } from "@/lib/mock-data";
-import { useBooking, type Booking } from "@/lib/booking-store";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { catalogQueryOptions, findTitle, inr } from "@/lib/catalog";
+import { useBooking } from "@/lib/booking-store";
+import { useCancelBooking, useMyBookings, type Booking } from "@/lib/bookings";
 import { useAuth } from "@/lib/auth-store";
 import {
   AlertDialog,
@@ -35,13 +37,17 @@ export const Route = createFileRoute("/profile")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
+  loader: ({ context }) => context.queryClient.ensureQueryData(catalogQueryOptions),
   component: Profile,
 });
 
 type Tab = "upcoming" | "past";
 
 function Profile() {
-  const { bookings, city, cancelBooking } = useBooking();
+  const { city } = useBooking();
+  const catalog = useSuspenseQuery(catalogQueryOptions).data;
+  const { data: bookings = [], isLoading } = useMyBookings();
+  const cancelBooking = useCancelBooking();
   const { user, ready, signOut } = useAuth();
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("upcoming");
@@ -51,8 +57,8 @@ function Profile() {
   const past = bookings.filter((b) => b.cancelled);
   const list = tab === "upcoming" ? upcoming : past;
 
-  const handleSignOut = () => {
-    signOut();
+  const handleSignOut = async () => {
+    await signOut();
     toast.success("Signed out");
     navigate({ to: "/", replace: true });
   };
@@ -126,7 +132,13 @@ function Profile() {
           ))}
         </div>
 
-        {list.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-3">
+            {[0, 1].map((i) => (
+              <div key={i} className="h-28 animate-pulse rounded-2xl bg-surface glass-border" />
+            ))}
+          </div>
+        ) : list.length === 0 ? (
           <div className="rounded-2xl bg-surface p-6 text-center glass-border">
             <Ticket className="mx-auto h-8 w-8 text-primary" />
             <h2 className="mt-3 text-sm font-black">
@@ -149,7 +161,7 @@ function Profile() {
         ) : (
           <div className="space-y-3">
             {list.map((b) => {
-              const title = getTitle(b.titleId);
+              const title = findTitle(catalog, b.titleId);
               return (
                 <div key={b.ref} className="rounded-2xl bg-surface p-4 glass-border shadow-card">
                   <Link
@@ -221,8 +233,11 @@ function Profile() {
             <AlertDialogAction
               onClick={() => {
                 if (pendingCancel) {
-                  cancelBooking(pendingCancel.ref);
-                  toast.success(`Booking ${pendingCancel.ref} cancelled`);
+                  const ref = pendingCancel.ref;
+                  cancelBooking.mutate(ref, {
+                    onSuccess: () => toast.success(`Booking ${ref} cancelled`),
+                    onError: (e) => toast.error(e.message),
+                  });
                 }
                 setPendingCancel(null);
               }}

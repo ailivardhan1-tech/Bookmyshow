@@ -1,11 +1,16 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Bell, ChevronDown, MapPin, Search, User, X } from "lucide-react";
-import { cities, theaters, titles } from "@/lib/mock-data";
+import { useQuery } from "@tanstack/react-query";
+import { catalogQueryOptions } from "@/lib/catalog";
 import { useBooking } from "@/lib/booking-store";
 
 export function TopHeader() {
   const { city, setCity } = useBooking();
+  const { data: catalog } = useQuery(catalogQueryOptions);
+  const cities = catalog?.cities ?? [];
+  const titles = catalog?.titles ?? [];
+  const theaters = catalog?.theaters ?? [];
   const [locOpen, setLocOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [cityQuery, setCityQuery] = useState("");
@@ -30,7 +35,7 @@ export function TopHeader() {
         (t) => t.name.toLowerCase().includes(q) || t.area.toLowerCase().includes(q),
       ),
     };
-  }, [query]);
+  }, [query, titles, theaters]);
 
   return (
     <>
