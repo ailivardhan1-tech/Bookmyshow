@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CalendarCheck, CheckCircle2, Clock, MapPin, Share2, Sofa } from "lucide-react";
 import { Barcode, QrCode } from "@/components/QrCode";
-import { fnbItems, getTitle, inr } from "@/lib/mock-data";
-import { useBooking } from "@/lib/booking-store";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { catalogQueryOptions, findTitle, inr } from "@/lib/catalog";
+import { useBookingByRef } from "@/lib/bookings";
 
 export const Route = createFileRoute("/ticket/$ref")({
   head: () => ({
@@ -20,14 +21,24 @@ export const Route = createFileRoute("/ticket/$ref")({
       { name: "robots", content: "noindex" },
     ],
   }),
+  loader: ({ context }) => context.queryClient.ensureQueryData(catalogQueryOptions),
   component: TicketPage,
 });
 
 function TicketPage() {
   const { ref } = Route.useParams();
-  const { bookings } = useBooking();
-  const booking = bookings.find((b) => b.ref === ref);
-  const title = booking ? getTitle(booking.titleId) : undefined;
+  const catalog = useSuspenseQuery(catalogQueryOptions).data;
+  const { fnbItems } = catalog;
+  const { data: booking, isPending } = useBookingByRef(ref);
+  const title = booking ? findTitle(catalog, booking.titleId) : undefined;
+
+  if (isPending) {
+    return (
+      <div className="grid min-h-screen place-items-center p-6 text-center">
+        <p className="text-xs text-muted-foreground">Loading your M-ticket…</p>
+      </div>
+    );
+  }
 
   if (!booking || !title) {
     return (
@@ -35,7 +46,7 @@ function TicketPage() {
         <div>
           <h1 className="text-sm font-black">Ticket not available</h1>
           <p className="mt-2 text-xs text-muted-foreground">
-            This M-ticket isn't in this session. Book a show to generate a new one.
+            We couldn't find this M-ticket on your account. Sign in with the account you booked with.
           </p>
           <Link
             to="/"
